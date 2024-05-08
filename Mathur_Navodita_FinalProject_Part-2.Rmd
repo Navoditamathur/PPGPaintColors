@@ -1,0 +1,979 @@
+---
+title: "PPG Paint Colors: Final Project"
+subtitle: "Part-2: Regression"
+author: "Navodita Mathur"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+
+This RMarkdown shows how to perform regression with the final project data to predict logit transformed 'y'. 
+
+## Load packages
+
+```{r, load_packages}
+library(dplyr)
+library(tidyverse)
+library(caret)
+```
+
+## Read data
+
+The code chunk below reads in the final project data.  
+
+```{r, read_final_data}
+df <- readr::read_csv("paint_project_train_data.csv", col_names = TRUE)
+```
+
+The `readr::read_csv()` function displays the data types and column names associated with the data. However, a glimpse is shown below that reveals the number of rows and also shows some of the representative values for the columns.  
+
+```{r, show_data_glimpse}
+df %>% glimpse()
+```
+
+The data consist of continuous and categorical inputs. The `glimpse()` shown above reveals the data type for each variable which state to you whether the input is continuous or categorical. The RGB color model inputs, `R`, `G`, and `B` are continuous (dbl) inputs. The HSL color model inputs consist of 2 categorical inputs, `Lightness` and `Saturation`, and a continuous input, `Hue`. Two outputs are provided. The continuous output, `response`, and the Binary output, `outcome`. However, the data type of the Binary outcome is numeric because the Binary `outcome` is **encoded** as `outcome = 1` for the EVENT and `outcome = 0` for the NON-EVENT.  
+
+# Regression task
+
+The code chunk below assembles the data for Part ii) of the project.  The logit-transformed output is named `y`. The `dfii` dataframe as the original `response` and Binary output, `outcome`, removed. This way you can focus on the variables specific to the regression task.  
+
+```{r, make_reg_data}
+dfii <- df %>% 
+  mutate(y = boot::logit( (response - 0) / (100 - 0) ) ) %>% 
+  dplyr::select(R, G, B, 
+         Lightness, Saturation, Hue,
+         y)
+
+dfii %>% glimpse()
+```
+
+The code below visualizes the distribution of logit transformed 'y'.
+```{r}
+dfii%>%
+  ggplot(mapping = aes(x=y))+
+  geom_histogram(bins=20)+
+  theme_bw()
+```
+
+# ii A)
+
+## Model Construction
+
+### Model-1 
+
+The code chunk below constructs a design matrix and fits a linear model to predict the logit-transformed output `y` via a intercept only model. The result is assigned to the `lm_mod01` object.  
+
+```{r, mod01}
+Xmat_lm_01 = model.matrix(y~1, data = dfii)
+lm_mod01 <- lm( y~1, data = dfii )
+```
+
+```{r}
+lm_mod01 %>% summary()
+```
+
+```{r}
+lm_mod01$coefficients
+```
+
+### Model-2
+
+The code chunk below constructs a design matrix and fits a linear model to predict logit-transformed output `y` via a additive Category inputs model. The result is assigned to the `lm_mod02` object.
+ 
+```{r, mod02}
+Xmat_lm_02 = model.matrix(y ~ Lightness + Saturation, data = dfii)
+lm_mod02 <- lm( y ~ Lightness + Saturation, data = dfii )
+```
+
+```{r}
+summary(lm_mod02)
+```
+
+Visualize the coefficient plot for the constructed model.
+```{r}
+coefplot::coefplot(lm_mod02)
+```
+
+### Model-3
+
+The code chunk below constructs a design matrix and fits a linear model to predict logit-transformed output `y` via a additive Continuous inputs model. The result is assigned to the `lm_mod03` object.
+ 
+```{r, mod03}
+Xmat_lm_03 = model.matrix(y ~ R+G+B+Hue, data = dfii)
+lm_mod03 <- lm( y ~ R+G+B+Hue, data = dfii )
+```
+
+```{r}
+summary(lm_mod03)
+```
+
+Visualize the coefficient plot for the constructed model.
+```{r}
+coefplot::coefplot(lm_mod03)
+```
+
+### Model-4
+
+ The code chunk below constructs a design matrix and fits a linear model to predict logit-transformed output `y` via a additive inputs model. The result is assigned to the `lm_mod04` object.
+```{r, mod04}
+Xmat_lm_04 = model.matrix(y ~ ., data = dfii)
+lm_mod04 <- lm( y ~ ., data = dfii )
+```
+
+```{r}
+summary(lm_mod04)
+```
+
+Visualize the coefficient plot for the constructed model.
+```{r}
+coefplot::coefplot(lm_mod04)
+```
+
+### Model-5
+
+The code chunk below constructs a design matrix and fits a linear model to predict logit-transformed output `y` via a model with Interaction of the categorical inputs with all continuous inputs main effects. The result is assigned to the `lm_mod05` object.
+
+```{r, mod05}
+Xmat_lm_05 <- model.matrix(y ~ (Lightness+Saturation)*(R+G+B+Hue), data = dfii)
+lm_mod05 <- lm( y ~ (Lightness+Saturation)*(R+G+B+Hue), data = dfii )
+```
+
+```{r}
+summary(lm_mod05)
+```
+
+Visualize the coefficient plot for the constructed model.
+```{r}
+coefplot::coefplot(lm_mod05)
+```
+
+### Model-6
+
+The code chunk below constructs a design matrix and fits a linear model to predict logit-transformed output `y` via a model with addition of categorical inputs to all main effect and all pairwise interactions of continuous inputs. The result is assigned to the `lm_mod06` object.
+```{r, mod06}
+Xmat_lm_06 <- model.matrix(y ~ Lightness + Saturation + (R+G+B+Hue)^2, data = dfii)
+lm_mod06 <- lm( y ~ Lightness + Saturation + (R+G+B+Hue)^2, data = dfii )
+```
+
+```{r}
+summary(lm_mod06)
+```
+
+Visualize the coefficient plot for the constructed model.
+```{r}
+coefplot::coefplot(lm_mod06)
+```
+
+### Model-7
+
+The code chunk below constructs a design matrix and fits a linear model to predict logit-transformed output `y`  via a model with interaction of categorical inputs to all main effect and all pairwise interactions of continuous inputs. The result is assigned to the `lm_mod07` object.
+```{r, mod07}
+Xmat_lm_07 <- model.matrix(y ~ (Lightness+Saturation)*((R+G+B+Hue)^2), data = dfii)
+lm_mod07 <- lm( y ~ (Lightness+Saturation)*((R+G+B+Hue)^2), data = dfii )
+```
+
+```{r}
+summary(lm_mod07)
+```
+
+Visualize the coefficient plot for the constructed model.
+```{r}
+coefplot::coefplot(lm_mod07)
+```
+
+### Model-8
+
+From data exploration in Part-1, it is clear that R, G, B and Lightness has greater influence on the response, as compared to Saturation and Hu
+The code chunk below constructs a design matrix and fits a linear model to predict logit transformed `y` via a model with interaction of splines of degree 2 of R,G variables interacted with B and added to Lightness. The result is assigned to the `lm_mod08` object.
+```{r, mod08}
+Xmat_lm_08 <- model.matrix(y ~ splines::ns(R, df=2)*splines::ns(G, df=2)*B + Lightness, data = dfii)
+lm_mod08 <- lm( y ~ splines::ns(R, df=2)*splines::ns(G, df=2)*B + Lightness, data = dfii )
+```
+
+```{r}
+summary(lm_mod08)
+```
+
+Visualize the coefficient plot for the constructed model.
+```{r}
+coefplot::coefplot(lm_mod08)
+```
+
+### Model-9
+
+The code chunk below constructs a design matrix and fits a linear model to predict logit-transformed output `y` via a model with addition of all splines of degree 2 of continuous variables with categorical inputs. The result is assigned to the `lm_mod09` object.
+```{r, mod09}
+Xmat_lm_09 <- model.matrix(y ~ splines::ns(R, df=2)+splines::ns(G, df=2)+splines::ns(B, df=2)+Lightness+Saturation, data = dfii)
+lm_mod09 <- lm( y ~ splines::ns(R, df=2)+splines::ns(G, df=2)+splines::ns(B, df=2)+Lightness+Saturation, data = dfii )
+```
+
+```{r}
+summary(lm_mod09)
+```
+
+Visualize the coefficient plot for the constructed model.
+```{r}
+coefplot::coefplot(lm_mod09)
+```
+
+### Model-10
+
+The code chunk below constructs a design matrix and fits a linear model to predict logit-transformed output `y` via a model with interaction of all splines of degree 2 of continuous variables with each other and with categorical inputs. The result is assigned to the `lm_mod10` object.
+```{r, mod10}
+Xmat_lm_10 <- model.matrix(y ~ (Lightness+Saturation)*(splines::ns(R, df=2)*splines::ns(G, df=2)*splines::ns(B, df=2)), data = dfii)
+lm_mod10 <- lm( y ~ (Lightness+Saturation)*(splines::ns(R, df=2)*splines::ns(G, df=2)*splines::ns(B, df=2)), data = dfii )
+```
+
+```{r}
+summary(lm_mod10)
+```
+
+Visualize the coefficient plot for the constructed model.
+```{r}
+coefplot::coefplot(lm_mod10)
+```
+
+## Model Comparison
+
+The code chunk below compares the performance above models with AIC, BIC, R-squared and adjusted R-squared
+```{r}
+perf_metrics <- function(mod, model_name)
+{
+  broom::glance(mod) %>% 
+    mutate(model_name = model_name)
+}
+
+model_list <- list(lm_mod01, lm_mod02, lm_mod03, lm_mod04,lm_mod05,lm_mod06,lm_mod07,lm_mod08,lm_mod09,lm_mod10)
+model_names <- list("mod01","mod02","mod03","mod04","mod05","mod06","mod07","mod08","mod09","mod10")
+all_model_metrics <- purrr::map2_dfr(model_list,
+                                     model_names,
+                                     perf_metrics)
+
+all_model_metrics %>% dplyr::select(model_name,r.squared, adj.r.squared, AIC, BIC)
+```
+
+```{r}
+all_model_metrics %>% 
+  dplyr::select(model_name, r.squared, sigma, AIC, BIC) %>% 
+  pivot_longer(!c("model_name")) %>% 
+  ggplot(mapping = aes(x = model_name, y = value)) +
+  facet_wrap(~name, scales = 'free_y') +
+  geom_point() +
+  theme_bw()
+```
+
+Select mod8, mod7, mod 5 are selected as top models with combination of R-squared, AIC and BIC
+
+As BIC is considerably high for mod10, it is not selected even though it has least AIC
+
+Let us Visualize the coefficient summaries
+
+```{r}
+summary(lm_mod08)$coefficients
+```
+
+```{r}
+summary(lm_mod07)$coefficients
+```
+
+```{r}
+summary(lm_mod05)$coefficients
+```
+
+R, G are identified as top variables
+
+The two models selected are model -8 and model-7. Model 7 is selected as it has the best performance after 8 and has all the features
+
+# ii B)
+
+Load the libraries required
+
+```{r}
+library(rstanarm)
+```
+
+The below statement creates a bayesian model with the same model as best model from the above which is mod 8
+
+```{r, bayesian_model_1}
+bayesian_model_lm_1 <-stan_lm(y ~ splines::ns(R, df=2)*splines::ns(G, df=2)*B + Lightness, data = dfii, prior = R2(location = 1.0), seed = 12345)
+```
+
+```{r}
+plot(bayesian_model_lm_1, pars = names(bayesian_model_lm_1$coefficients)) + 
+  geom_vline(xintercept = 0, color = "grey", linetype = "dashed", size = 1.) +
+  theme_bw()
+```
+
+The below statement creates another bayesian model with the same model as selected 2nd model from the above which is mod 7
+
+```{r, bayesian_model_2}
+bayesian_model_lm_2 <-stan_lm(y ~ (Lightness+Saturation)*((R+G+B+Hue)^2), data = dfii, prior = R2(location = 1.0), seed = 12345)
+```
+
+```{r}
+plot(bayesian_model_lm_2, pars = names(bayesian_model_lm_2$coefficients)) + 
+  geom_vline(xintercept = 0, color = "grey", linetype = "dashed", size = 1.) +
+  theme_bw()
+```
+
+
+```{r}
+purrr::map2_dfr(list(bayesian_model_lm_1, bayesian_model_lm_2),
+                as.character(1:2),
+                function(mod, mod_name){tibble::tibble(rsquared = bayes_R2(mod)) %>% 
+                    mutate(model_name = mod_name)}) %>% 
+  ggplot(mapping = aes(x = rsquared)) +
+  geom_freqpoly(bins = 55,
+                 mapping = aes(color = model_name),
+                 size = 1.1) +
+  coord_cartesian(xlim = c(0, 1)) +
+  ggthemes::scale_color_colorblind("Model") +
+  theme_bw()
+```
+
+```{r}
+purrr::map2_dfr(list(bayesian_model_lm_1, bayesian_model_lm_2),
+                as.character(1:2),
+                function(mod, mod_name){as.data.frame(mod) %>% tibble::as_tibble() %>% 
+                    dplyr::select(sigma) %>% 
+                    mutate(model_name = mod_name)}) %>% 
+  ggplot(mapping = aes(x = sigma)) +
+  geom_freqpoly(bins = 55,
+                 mapping = aes(color = model_name),
+                 size = 1.1) +
+  ggthemes::scale_color_colorblind("Model") +
+  theme_bw()
+```
+
+```{r}
+bayesian_model_lm_1$waic <- waic(bayesian_model_lm_1)
+bayesian_model_lm_2$waic <- waic(bayesian_model_lm_2)
+```
+
+```{r}
+bayesian_models_lm <- stanreg_list(bayesian_model_lm_1, bayesian_model_lm_1,
+                          model_names = c("bayesian_model_lm_1", "bayesian_model_lm_2"))
+```
+
+```{r}
+loo_compare(bayesian_models_lm, criterion = "waic")
+```
+
+```{r}
+k_bayesian_model_lm_1 <- kfold(bayesian_model_lm_1, K = 10)
+```
+
+```{r}
+k_bayesian_model_lm_2 <- kfold(bayesian_model_lm_2, K=10)
+```
+
+```{r}
+loo_compare(k_bayesian_model_lm_1, k_bayesian_model_lm_2)
+```
+
+Bayesian Model 1 is better as compared to Bayesian model 2
+
+```{r}
+as.data.frame(bayesian_model_lm_1) %>% tibble::as_tibble() %>% 
+  dplyr::select(sigma) %>% 
+  pull() %>% 
+  quantile(c(0.05, 0.5, 0.95))
+```
+
+```{r}
+as.data.frame(bayesian_model_lm_1) %>% tibble::as_tibble() %>% 
+  ggplot(mapping = aes(x = sigma)) +
+  geom_histogram(bins = 55) +
+  geom_vline(xintercept = stats::sigma(lm_mod08),
+             color = "darkorange", linetype = "dashed", size = 1.1) +
+  theme_bw()
+```
+
+posterior is quite precise.
+
+```{r}
+as.data.frame(bayesian_model_lm_1) %>% tibble::as_tibble() %>% 
+  dplyr::select(all_of(names(bayesian_model_lm_1$coefficients))) %>% 
+  tibble::rowid_to_column("post_id") %>% 
+  pivot_longer(!c("post_id")) %>% 
+  ggplot(mapping = aes(x = value)) +
+  geom_histogram(bins = 55) +
+  facet_wrap(~name, scales = "free") +
+  theme_bw() +
+  theme(axis.text.y = element_blank())
+```
+
+# ii C)
+
+The code chunk below prepares synthetic data to visualize the confidence and prediction intervals for the constructed models
+```{r}
+viz_grid <- expand.grid(R = seq(min(dfii$R), max(dfii$R),length.out=6),
+                        G = seq(min(dfii$G), max(dfii$G), length.out=6),
+                        B = seq(min(dfii$B), max(dfii$B), length.out=6),
+                        Hue = seq(min(dfii$Hue), max(dfii$Hue), length.out=6),
+                        Lightness = unique(dfii$Lightness),
+                        Saturation = unique(dfii$Saturation),
+                        KEEP.OUT.ATTRS = FALSE,
+                        stringsAsFactors = FALSE) %>% 
+  as.data.frame() %>% tibble::as_tibble()
+```
+
+The code chunk below assembles the predicted mean trend, the confidence interval, and the prediction interval into a `tibble`
+```{r}
+tidy_predict <- function(mod, xnew)
+{
+  pred_df <- predict(mod, xnew, interval = "confidence") %>% 
+    as.data.frame() %>% tibble::as_tibble() %>% 
+    dplyr::select(pred = fit, ci_lwr = lwr, ci_upr = upr) %>% 
+    bind_cols(predict(mod, xnew, interval = 'prediction') %>% 
+                as.data.frame() %>% tibble::as_tibble() %>% 
+                dplyr::select(pred_lwr = lwr, pred_upr = upr))
+  
+  xnew %>% bind_cols(pred_df)
+}
+```
+
+The code chunk below makes predictions with each of the two models models selected using the visualization grid, `viz_grid`
+```{r}
+pred_lm_08 <- tidy_predict(lm_mod08, viz_grid)
+pred_lm_07 <- tidy_predict(lm_mod07, viz_grid)
+```
+
+The code chunk below visualizes the predictions of `lm_mod08` on the visualization grid
+```{r}
+pred_lm_08 %>% 
+  ggplot(mapping = aes(x = G)) +
+  geom_ribbon(mapping = aes(ymin = pred_lwr, ymax = pred_upr), fill = "orange") +
+  geom_ribbon(mapping = aes(ymin = ci_lwr, ymax = ci_upr), fill = "grey") +
+ geom_line(mapping = aes(y = pred)) +
+ facet_wrap(~R)+
+  theme_bw()
+```
+
+The code chunk below visualizes the predictions of `lm_mod07` on the visualization grid
+```{r}
+pred_lm_07 %>% 
+  ggplot(mapping = aes(x = G)) +
+  geom_ribbon(mapping = aes(ymin = pred_lwr, ymax = pred_upr), fill = "orange") +
+  geom_ribbon(mapping = aes(ymin = ci_lwr, ymax = ci_upr), fill = "grey") +
+ geom_line(mapping = aes(y = pred)) +
+ facet_wrap(~R) +
+  theme_bw()
+```
+
+The code chunk below prepares synthetic data to visualize the confidence and prediction intervals for the constructed bayesian models
+```{r}
+viz_grid_small <- expand.grid(R = seq(min(dfii$R), max(dfii$R),length.out=6),
+                        G = seq(min(dfii$G), max(dfii$G), length.out=6),
+                        B = seq(min(dfii$B), max(dfii$B), length.out=1),
+                        Hue = seq(min(dfii$Hue), max(dfii$Hue), length.out=1),
+                        Lightness = unique(dfii$Lightness),
+                        Saturation = unique(dfii$Saturation),
+                        KEEP.OUT.ATTRS = FALSE,
+                        stringsAsFactors = FALSE) %>% 
+  as.data.frame() %>% tibble::as_tibble()
+```
+
+The code chunk below summarizes the posterior predictions of the response and displays the 90% uncertainty interval around the mean with ribbons.
+
+For Bayesian Model-1
+```{r}
+posterior_predict(bayesian_model_lm_1, newdata = viz_grid_small) %>% 
+  as.data.frame() %>% tibble::as_tibble() %>% 
+  tibble::rowid_to_column("post_id") %>% 
+  pivot_longer(!c("post_id"), names_to = 'pred_id') %>% 
+  mutate(across(.cols = 'pred_id', .fns = as.numeric)) %>% 
+  group_by(pred_id) %>% 
+  summarise(y_avg = mean(value),
+            y_lwr = quantile(value, 0.05),
+            y_upr = quantile(value, 0.95)) %>% 
+  ungroup() %>% 
+  left_join(posterior_linpred(bayesian_model_lm_1, newdata = viz_grid_small) %>% 
+              as.data.frame() %>% tibble::as_tibble() %>% 
+              tibble::rowid_to_column("post_id") %>% 
+              pivot_longer(!c("post_id"), names_to = 'pred_id') %>% 
+              mutate(across(.cols = 'pred_id', .fns = as.numeric)) %>% 
+              group_by(pred_id) %>% 
+              summarise(trend_avg = mean(value),
+                        trend_lwr = quantile(value, 0.05),
+                        trend_upr = quantile(value, 0.95)) %>% 
+              ungroup(),
+            by = "pred_id") %>% 
+  left_join(viz_grid_small %>% tibble::rowid_to_column("pred_id"),
+            by = "pred_id") %>% 
+  ggplot(mapping = aes(x = G)) +
+  geom_ribbon(mapping = aes(ymin = y_lwr, ymax = y_upr,
+                            group = R), 
+              fill = "darkorange") +
+  geom_ribbon(mapping = aes(ymin = trend_lwr, ymax = trend_upr,
+                            group = R),
+              fill = "grey") +
+  geom_line(mapping = aes(y = trend_avg,
+                          group = R),
+            color = "black", size = 0.85) +
+  facet_wrap(~R, labeller = "label_both") +
+  labs(y = "y") +
+  theme_bw()
+```
+
+For Bayesian Model-2
+```{r}
+posterior_predict(bayesian_model_lm_2, newdata = viz_grid_small) %>% 
+  as.data.frame() %>% tibble::as_tibble() %>% 
+  tibble::rowid_to_column("post_id") %>% 
+  pivot_longer(!c("post_id"), names_to = 'pred_id') %>% 
+  mutate(across(.cols = 'pred_id', .fns = as.numeric)) %>% 
+  group_by(pred_id) %>% 
+  summarise(y_avg = mean(value),
+            y_lwr = quantile(value, 0.05),
+            y_upr = quantile(value, 0.95)) %>% 
+  ungroup() %>% 
+  left_join(posterior_linpred(bayesian_model_lm_2, newdata = viz_grid_small) %>% 
+              as.data.frame() %>% tibble::as_tibble() %>% 
+              tibble::rowid_to_column("post_id") %>% 
+              pivot_longer(!c("post_id"), names_to = 'pred_id') %>% 
+              mutate(across(.cols = 'pred_id', .fns = as.numeric)) %>% 
+              group_by(pred_id) %>% 
+              summarise(trend_avg = mean(value),
+                        trend_lwr = quantile(value, 0.05),
+                        trend_upr = quantile(value, 0.95)) %>% 
+              ungroup(),
+            by = "pred_id") %>% 
+  left_join(viz_grid_small %>% tibble::rowid_to_column("pred_id"),
+            by = "pred_id") %>% 
+  ggplot(mapping = aes(x = G)) +
+  geom_ribbon(mapping = aes(ymin = y_lwr, ymax = y_upr,
+                            group = R), 
+              fill = "darkorange") +
+  geom_ribbon(mapping = aes(ymin = trend_lwr, ymax = trend_upr,
+                            group = R),
+              fill = "grey") +
+  geom_line(mapping = aes(y = trend_avg,
+                          group = R),
+            color = "black", size = 0.85) +
+  facet_wrap(~R, labeller = "label_both") +
+  labs(y = "y") +
+  theme_bw()
+```
+
+No, the trends are not the same.
+
+# ii D)
+
+Load important libraries
+```{r}
+library(caret)
+```
+
+The below chunk sets the control and Performance metrics for part ii D)
+
+```{r}
+lm_ctrl <- trainControl(method = "repeatedcv", number = 5, repeats=5, savePredictions = TRUE)
+lm_metric <- "RMSE"
+```
+
+## Training and Validation with caret
+
+### Training Model-1 
+
+Model with linear additive features
+
+```{r, fit_lm_1}
+set.seed(5001)
+fit_lm_1 <- train(y ~ .,
+                  data = dfii,
+                  method = "lm",
+                  metric = lm_metric,
+                  preProcess = c("center", "scale"),
+                  trControl = lm_ctrl)
+
+fit_lm_1
+```
+
+The code chunk below visualizes the coefficient plot for the trained model, fit_lm_1.
+```{r}
+coefplot::coefplot(fit_lm_1)
+```
+
+The code chunk below visualizes the important features for the tuned model, fit_lm_1.
+```{r}
+varImp(fit_lm_1)
+```
+
+### Training Model-2
+
+Model with categorical inputs added to all main effect and all pairwise interactions of continuous inputs
+
+```{r, fit_lm_2}
+set.seed(5001)
+fit_lm_2 <- train(y ~ Lightness + Saturation + (R+G+B+Hue)^2,
+                  data = dfii,
+                  method = "lm",
+                  metric = lm_metric,
+                  preProcess = c("center", "scale"),
+                  trControl = lm_ctrl)
+
+fit_lm_2
+```
+
+The code chunk below visualizes the coefficient plot for the trained model, fit_lm_2.
+```{r}
+coefplot::coefplot(fit_lm_2)
+```
+
+The code chunk below visualizes the important features for the tuned model, fit_lm_2.
+```{r}
+varImp(fit_lm_2)
+```
+
+### Training Model-3
+
+Model with natural splines of 2 degrees of freedom of R, G, with B and added to Lightness, the best model selected from part-A
+
+```{r, fit_lm_3}
+set.seed(5001)
+fit_lm_3 <- train(y ~ splines::ns(R, df=2)*splines::ns(G, df=2)*B+Lightness,
+                  data = dfii,
+                  method = "lm",
+                  metric = lm_metric,
+                  preProcess = c("center", "scale"),
+                  trControl = lm_ctrl)
+
+fit_lm_3
+```
+
+The code chunk below visualizes the coefficient plot for the trained model, fit_lm_3.
+```{r}
+coefplot::coefplot(fit_lm_3)
+```
+
+The code chunk below visualizes the important features for the tuned model, fit_lm_3.
+```{r}
+varImp(fit_lm_3)
+```
+
+### Training Model-4
+
+Model with pair wise interactions of numerical variables with categorical variables, the 2nd model selected from part-A
+
+```{r, fit_lm_4}
+set.seed(5001)
+fit_lm_4 <- train(y ~ (Lightness+Saturation)*((R+G+B+Hue)^2),
+                  data = dfii,
+                  method = "lm",
+                  metric = lm_metric,
+                  preProcess = c("center", "scale"),
+                  trControl = lm_ctrl)
+
+fit_lm_4
+```
+
+The code chunk below visualizes the coefficient plot for the trained model, fit_lm_4.
+```{r}
+coefplot::coefplot(fit_lm_4)
+```
+
+The code chunk below visualizes the important features for the tuned model, fit_lm_4
+```{r}
+varImp(fit_lm_4)
+```
+
+### Training Model-5(elastic net)
+
+Regularized model with categorical inputs added to all main effect and all pairwise interactions of continuous inputs
+
+```{r, enet_glm_1}
+set.seed(5001)
+enet_lm_1 <- train(y~(Lightness+Saturation)+((R+G+B+Hue)^2), data = dfii , method='glmnet', metric = lm_metric, preProcess=c("center", "scale"), trControl = lm_ctrl )
+enet_lm_1
+```
+
+The below chunk creates a custom tuning grid to further tune the elastic net `lambda` and `alpha` tuning parameters
+```{r}
+enet_grid_lm_1 <- expand.grid(alpha = seq(0.1, 1, by = 0.1),
+                         lambda = exp(seq(log(min(enet_lm_1$results$lambda)),log(max(enet_lm_1$results$lambda)), length.out = 25)),
+                         KEEP.OUT.ATTRS = FALSE,
+                         stringsAsFactors = FALSE)
+enet_grid_lm_1%>%glimpse()
+```
+
+The code chunk below trains, assess, and tunes the elastic net model with the custom tuning grid
+```{r}
+set.seed(5001)
+enet_lm_1_tune <- train(y~(Lightness+Saturation)+((R+G+B+Hue)^2), data = dfii , method='glmnet', metric = lm_metric, preProcess=c("center", "scale"), trControl = lm_ctrl, tuneGrid=enet_grid_lm_1, xTrans = "log" )
+```
+
+```{r}
+enet_lm_1_tune$bestTune
+```
+
+The code chunk below visualizes the resampling results of the tuned model
+```{r}
+plot(enet_lm_1_tune, xTrans = log)
+```
+
+The code chunks below compares the performance of regularized and tuned model
+
+```{r}
+enet_lm_1_results <- resamples(list(mod_1 = enet_lm_1,
+                             mod_2 = enet_lm_1_tune
+                             ))
+```
+
+```{r}
+summary(enet_lm_1_results)
+```
+
+```{r}
+dotplot(enet_lm_1_results)
+```
+
+Though there is not much difference in the performance, we still proceed with tuned model for this application
+
+The code chunk below visualizes the coefficient plot for the tuned model, enet_lm_tune_1
+```{r}
+coefplot::coefplot(enet_lm_1_tune$finalModel)
+```
+
+The code chunk below visualizes the important features for the tuned model, enet_lm_1_tune
+```{r}
+varImp(enet_lm_1_tune)
+```
+
+### Training Model-6(elastic net)
+
+Regularised model with categorical inputs interacted pairwise interactions of continuous inputs
+
+```{r}
+set.seed(5001)
+enet_lm_2 <- train(y~(Lightness+Saturation)*((R + G + B + Hue)^2), data = dfii , method='glmnet', metric = lm_metric, preProcess=c("center", "scale"), trControl = lm_ctrl )
+enet_lm_2
+```
+
+The below chunk creates a custom tuning grid to further tune the elastic net `lambda` and `alpha` tuning parameters
+```{r}
+enet_grid_lm_2 <- expand.grid(alpha = seq(0.1, 1, by = 0.1),
+                         lambda = exp(seq(log(min(enet_lm_2$results$lambda)),log(max(enet_lm_2$results$lambda)), length.out = 25)),
+                         KEEP.OUT.ATTRS = FALSE,
+                         stringsAsFactors = FALSE)
+enet_grid_lm_2%>%glimpse()
+```
+
+The code chunk below trains, assess, and tunes the elastic net model with the custom tuning grid
+```{r}
+set.seed(5001)
+enet_lm_2_tune <- train(y~(Lightness+Saturation)*((R + G + B + Hue)^2), data = dfii , method='glmnet', metric = lm_metric, preProcess=c("center", "scale"), trControl = lm_ctrl, tuneGrid=enet_grid_lm_2, xTrans = "log" )
+```
+
+```{r}
+enet_lm_2_tune$bestTune
+```
+
+The code chunk below visualizes the resampling results of the tuned model
+```{r}
+plot(enet_lm_2_tune, xTrans = log)
+```
+
+The code chunks below compares the performance of regularized and tuned model
+
+```{r}
+enet_lm_2_results <- resamples(list(mod_1 = enet_lm_2,
+                             mod_2 = enet_lm_2_tune
+                             ))
+```
+
+```{r}
+summary(enet_lm_2_results)
+```
+
+```{r}
+dotplot(enet_lm_2_results, metric = "RMSE")
+```
+
+Though there is not much difference in the performance, we still proceed with tuned model for this application
+
+The code chunk below visualizes the coefficient plot for the tuned model, enet_lm_2_tune.
+```{r}
+coefplot::coefplot(enet_lm_2_tune$finalMode)
+```
+
+The code chunk below visualizes the important features for the tuned model, enet_lm_2_tune
+```{r}
+varImp(enet_lm_2_tune)
+```
+
+### Training Model-7 (Neural Network)
+
+```{r}
+set.seed(5001)
+fit_lm_nnet <- train(y ~ .,
+                  data = dfii,
+                  method = "nnet",
+                  metric = lm_metric,
+                  preProcess = c("center", "scale"),
+                  trControl = lm_ctrl,trace = FALSE, linout = TRUE)
+
+fit_lm_nnet
+```
+
+The code chunk below visualizes the important features for the trained model, fit_lm_nnet
+```{r}
+varImp(fit_lm_nnet)
+```
+
+### Training Model-8 (Random Forest)
+
+```{r}
+set.seed(5001)
+fit_lm_rf <- train(y ~ .,
+                  data = dfii,
+                  method = "rf",
+                  metric = lm_metric,
+                  preProcess = c("center", "scale"),
+                  trControl = lm_ctrl,importance = TRUE)
+
+fit_lm_rf
+```
+
+The code chunk below visualizes the important features for the trained model, fit_lm_rf
+```{r}
+varImp(fit_lm_rf)
+```
+
+### Training Model-9(Gradient Boosted Tree)
+
+```{r}
+set.seed(5001)
+fit_lm_xgb <- train(y ~ .,
+                  data = dfii,
+                  method = "xgbTree",
+                  metric = lm_metric,
+                  preProcess = c("center", "scale"),
+                  trControl = lm_ctrl,
+                  verbosity = 0)
+fit_lm_xgb
+```
+
+The code chunk below visualizes the important features for the trained model, fit_lm_xgb
+```{r}
+varImp(fit_lm_xgb)
+```
+
+### Training Model-10(Support Vector Machines)
+
+```{r}
+set.seed(5001)
+fit_lm_pls <- train(y ~ .,
+                  data = dfii,
+                  method = "pls",
+                  metric = lm_metric,
+                  preProcess = c("center", "scale"),
+                  trControl = lm_ctrl)
+
+fit_lm_pls
+```
+
+The code chunk below visualizes the important features for the trained model, fit_lm_pls
+```{r}
+varImp(fit_lm_pls)
+```
+
+### Training Model-11 (Generalized Additive models) (GAM) 
+
+```{r}
+set.seed(5001)
+fit_lm_gam <- train(y ~ .,
+                  data = dfii,
+                  method = "gam",
+                  metric = lm_metric,
+                  preProcess = c("center", "scale"),
+                  trControl = lm_ctrl,
+                  trace = FALSE,
+                  linout = TRUE)
+
+fit_lm_gam
+```
+
+The code chunk below visualizes the important features for the trained model, fit_lm_gam
+```{r}
+varImp(fit_lm_gam$finalModel)
+```
+
+## Performance Comparison with Resampling
+
+```{r}
+lm_results <- resamples(list(LM_1 = fit_lm_1,
+                             LM_2 = fit_lm_2,
+                             LM_3 = fit_lm_3,
+                             LM_4 = fit_lm_4,
+                             glm_1 = enet_lm_1_tune,
+                             glm_2 = enet_lm_2_tune,
+                             NNET = fit_lm_nnet,
+                             PLS = fit_lm_pls,
+                             RF = fit_lm_rf,
+                             XGB = fit_lm_xgb,
+                             GAM = fit_lm_gam))
+
+```
+
+```{r}
+summary(lm_results)
+```
+
+```{r}
+dotplot(lm_results, metric = "RMSE")
+```
+
+```{r}
+dotplot(lm_results, metric = "Rsquared")
+```
+
+With Both RMSE and R squared fit_lm_3 in considered at the best
+
+```{r}
+plot(varImp(fit_lm_3))
+```
+
+# Save the model with best performance
+
+Save the model by piping the best model object into `readr::write_rds()`. 
+```{r}
+fit_lm_3%>%
+  readr::write_rds("lm_model.rds")
+```
+
+# Predictions
+
+The code chunk below binds the predictions made by summarizing through folds to the dataset
+```{r}
+df_pred_lm <- cbind(dfii,fit_lm_3$pred %>% 
+  group_by(rowIndex) %>% 
+  summarise(pred = mean(pred)))
+```
+
+```{r}
+df_pred_lm%>%glimpse()
+```
+
+Check the R-square of predictions with the model
+```{r}
+cor(df_pred_lm$y,df_pred_lm$pred)^2
+```
+
+Check the RMSE of predictions with the model
+```{r}
+RMSE(df_pred_lm$pred, df_pred_lm$y)
+```
+
+# Save the predictions of best model 
+
+```{r}
+write.csv(df_pred_lm,file='lm_predict.csv')
+```
+
+
+

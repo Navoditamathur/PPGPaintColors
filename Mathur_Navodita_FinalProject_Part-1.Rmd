@@ -1,0 +1,719 @@
+---
+title: "PPG Paint Colors: Final Project"
+subtitle: "Part-1: Data Exploration"
+author: "Navodita Mathur"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+
+This RMarkdown shows how to explore the final project data. 
+
+## Load packages
+
+```{r, load_tidyverse}
+library(tidyverse)
+```
+
+## Read data
+
+The code chunk below reads in the final project data.  
+```{r, read_final_data}
+df <- readr::read_csv("paint_project_train_data.csv", col_names = TRUE)
+```
+
+The `readr::read_csv()` function displays the data types and column names associated with the data. However, a glimpse is shown below that reveals the number of rows and also shows some of the representative values for the columns.  
+
+```{r, show_data_glimpse}
+df %>% glimpse()
+```
+
+The data consist of continuous and categorical inputs. The `glimpse()` shown above reveals the data type for each variable which state to you whether the input is continuous or categorical. The RGB color model inputs, `R`, `G`, and `B` are continuous (dbl) inputs. The HSL color model inputs consist of 2 categorical inputs, `Lightness` and `Saturation`, and a continuous input, `Hue`. Two outputs are provided. The continuous output, `response`, and the Binary output, `outcome`. However, the data type of the Binary outcome is numeric because the Binary `outcome` is **encoded** as `outcome = 1` for the EVENT and `outcome = 0` for the NON-EVENT.  
+
+# Missing Values
+
+```{r}
+visdat::vis_miss(df) +
+  theme(axis.text.x = element_text(size = 6.5, angle = 90))
+```
+
+```{r}
+visdat::vis_dat(df)
+```
+
+The code chunk below shows summary of the data
+```{r}
+df%>%summary()
+```
+
+# Explore the data
+
+## Visualize the distributions of variables in the data set
+
+The code chunk below visualizes the distribution of data with respect to "R" using density plot
+```{r}
+df%>%
+  ggplot(mapping=aes(x=R)) + 
+  geom_density() + 
+  geom_vline(aes(xintercept=mean(R)),
+            color="blue", linetype="dashed", linewidth=1)+
+  theme_bw()
+```
+
+The code chunk below visualizes the distribution of data with respect to "G" using density plot
+```{r}
+df%>%
+  ggplot(mapping=aes(x=G)) + 
+  geom_density() + 
+  geom_vline(aes(xintercept=mean(G)),
+            color="blue", linetype="dashed", linewidth=1)+
+  theme_bw()
+```
+
+The code chunk below visualizes the distribution of data with respect to "B" using density plot
+```{r}
+df%>%
+  ggplot(mapping=aes(x=B)) + 
+  geom_density() + 
+  geom_vline(aes(xintercept=mean(B)),
+            color="blue", linetype="dashed", linewidth=1) +
+  theme_bw()
+```
+
+The code chunk below visualizes the distribution of data with respect to "Hue" using density plot
+```{r}
+df%>%
+  ggplot(mapping=aes(x=Hue)) + 
+  geom_density() + 
+  geom_vline(aes(xintercept=mean(Hue)),
+            color="blue", linetype="dashed", linewidth=1)+
+  theme_bw()
+```
+
+The code chunk below visualizes the distribution of data with respect to "Lightness" using a bar plot
+```{r}
+df%>%
+  ggplot()+
+  geom_bar(mapping=aes(x=Lightness))+
+  theme_bw()
+```
+
+The code chunk below visualizes the distribution of data with respect to "Saturation"  using a bar plot
+```{r}
+df%>%
+  ggplot()+
+  geom_bar(mapping=aes(x=Saturation))+
+  theme_bw()
+```
+
+## Condition (group) the continuous variables based on the categorical variables
+
+The below code visualizes density plot of R by grouping Lightness
+```{r}
+df%>%
+  ggplot(mapping=aes(x=R, color=Lightness)) + 
+  geom_density() +
+  theme_bw()
+```
+
+The below code visualizes density plot of R by grouping Saturation
+```{r}
+df%>%
+  ggplot(mapping=aes(x=R, color=Saturation)) + 
+  geom_density() +
+  theme_bw()
+```
+
+The below code visualizes density plot of G by grouping  Lightness
+```{r}
+df%>%
+  ggplot(mapping=aes(x=G, color=Lightness)) + 
+  geom_density() +
+  theme_bw()
+```
+
+The below code visualizes density plot of G by grouping  Saturation
+```{r}
+df%>%
+  ggplot(mapping=aes(x=G, color=Saturation)) + 
+  geom_density() +
+  theme_bw()
+```
+
+The below code visualizes density plot of B by grouping Lightness
+```{r}
+df%>%
+  ggplot(mapping=aes(x=B, color=Lightness)) + 
+  geom_density() +
+  theme_bw()
+```
+
+The below code visualizes density plot of B by grouping Saturation
+```{r}
+df%>%
+  ggplot(mapping=aes(x=B, color=Saturation)) + 
+  geom_density() +
+  theme_bw()
+```
+
+The below code visualizes density plot of Hue by grouping Lightness
+```{r}
+df%>%
+  ggplot(mapping=aes(x=Hue, color=Lightness)) + 
+  geom_density() +
+  theme_bw()
+```
+
+The below code visualizes density plot of Hue by grouping Saturation
+```{r}
+df%>%
+  ggplot(mapping=aes(x=Hue, color=Saturation)) + 
+  geom_density() +
+  theme_bw()
+```
+
+## Visualize the statistics
+
+The below code visualizes the statistics of the continuous variables using boxplots
+```{r}
+ df %>% 
+  tibble::rowid_to_column() %>%
+  pivot_longer(c(R, G, B,Hue)) %>%
+  ggplot(mapping = aes(x=name, y=value))+
+  geom_boxplot(mapping = aes(group=name))+
+  theme_bw()
+```
+
+The below code visualizes the proportion of data with respect to categorical variables
+```{r}
+df %>% 
+  mutate(Lightness = forcats::fct_lump_prop(Lightness, 0.05),
+         Saturation = forcats::fct_lump_prop(Saturation, 0.05)) %>% 
+  count(Lightness, Saturation) %>% 
+  mutate(prop_total = n / sum(n)) %>% 
+  ggplot(mapping = aes(x = Lightness, y = Saturation)) +
+  geom_tile(mapping = aes(fill = cut(prop_total,
+                                     breaks = seq(0.0, 0.03, by = 0.001))),
+            color = "black") +
+  geom_text(mapping = aes(label = signif(prop_total, 3),
+                          color = prop_total < 0.13)) +
+  scale_fill_viridis_d("Proportion") +
+  scale_color_manual(guide = 'none',
+                     values = c("TRUE" = "white", 
+                                "FALSE" = "black")) +
+  theme_bw()
+```
+
+The below code visualizes the proportion of data for different categories of Lightness
+
+```{r}
+df%>% 
+  count(Lightness) %>% 
+  knitr::kable()
+```
+
+```{r}
+ df%>% 
+  mutate(Lightness = forcats::fct_infreq(Lightness)) %>% 
+  ggplot(mapping = aes(x = Lightness, y = after_stat(prop), group = 1)) +
+  geom_bar() +
+  coord_flip() +
+  labs(x = "") +
+  theme_bw()
+```
+
+The below code visualizes the proportion of data for different categories of  Saturation
+
+```{r}
+df%>% 
+  count(Saturation) %>% 
+  knitr::kable()
+```
+
+```{r}
+ df%>% 
+  mutate(Saturation = forcats::fct_infreq(Saturation)) %>% 
+  ggplot(mapping = aes(x = Saturation, y = after_stat(prop), group = 1)) +
+  geom_bar() +
+  coord_flip() +
+  labs(x = "") +
+  theme_bw()
+```
+
+## Visualize the relationships between the continuous inputs, are they correlated
+
+```{r}
+pairs <- model.matrix(response~0+R+G+B+Hue, df)
+pairs %>% cor %>% corrplot::corrplot(type = 'upper',method='square')
+```
+
+## Visualize the relationships between the continuous outputs (response and the LOGIT-transformed response, y) with respect to the INPUTS
+
+### Visualize the relationships between the continuous output 'response' with respect to the inputs
+
+-> Visualize the relationships between the continuous output 'response' with respect to the continuous inputs
+
+```{r}
+ df %>% 
+  tibble::rowid_to_column() %>%
+  pivot_longer(c(R, G, B,Hue)) %>%
+  ggplot(mapping = aes(x=value,y=response))+
+  geom_point(alpha=0.33)+
+  facet_wrap(~name,scales = 'free_x')+
+  theme_bw()
+```
+
+The below code visualizes the relationship between response and R
+```{r}
+df%>%
+  ggplot(mapping=aes(y=response))+
+  geom_point(mapping=aes(x=R))+
+  theme_bw()
+```
+
+The below code visualizes the relationship between response and G
+```{r}
+df%>%
+  ggplot(mapping=aes(y=response))+
+  geom_point(mapping=aes(x=G))+
+  theme_bw()
+```
+  
+The below code visualizes the relationship between response and B
+```{r}
+df%>%
+  ggplot(mapping=aes(y=response))+
+  geom_point(mapping=aes(x=B))+
+  theme_bw()
+```
+
+The below code visualizes the relationship between response and Hue
+```{r}
+df%>%
+  ggplot(mapping=aes(y=response))+
+  geom_point(mapping=aes(x=Hue))+
+  theme_bw()
+```
+
+-> Visualize the relationships between the continuous output 'response' with respect to the categorical inputs
+
+The below code visualizes the relationship between response and Lightness
+```{r}
+df%>%
+  ggplot(mapping=aes(y=response))+
+  geom_boxplot(mapping=aes(x=Lightness))+
+  theme_bw()
+```
+
+The below code visualizes the relationship between response and Saturation
+```{r}
+df%>%
+  ggplot(mapping=aes(y=response))+
+  geom_boxplot(mapping=aes(x=Saturation))+
+  theme_bw()
+```
+
+### Visualize the relationships between the continuous output the LOGIT-transformed response, y) with respect to the inputs
+
+```{r}
+df <- df %>% 
+  mutate(y = boot::logit( (response - 0) / (100 - 0) ) )
+
+df %>% glimpse()
+```
+
+-> Visualize the relationships between the continuous output the LOGIT-transformed response, y) with respect to the continuous inputs
+
+```{r}
+df %>% 
+  tibble::rowid_to_column() %>%
+  pivot_longer(c(R, G, B,Hue)) %>%
+  ggplot(mapping = aes(x=value,y=y))+
+  geom_point(alpha=0.33)+
+  facet_wrap(~name,scales = 'free_x')+
+  theme_bw()
+```
+
+The below code visualizes the relationships between the continuous output the LOGIT-transformed response, y)and  R
+```{r}
+df%>%
+  ggplot(mapping=aes(y=y))+
+  geom_point(mapping=aes(x=R))+
+  theme_bw()
+```
+
+The below code visualizes the relationships between the continuous output the LOGIT-transformed response, y) and G
+```{r}
+df%>%
+  ggplot(mapping=aes(y=y))+
+  geom_point(mapping=aes(x=G))+
+  theme_bw()
+```
+
+The below code visualizes the relationships between the continuous output the LOGIT-transformed response, y) and B
+```{r}
+df%>%
+  ggplot(mapping=aes(y=y))+
+  geom_point(mapping=aes(x=B))+
+  theme_bw()
+```
+
+The below code visualizes the relationships between the continuous output the LOGIT-transformed response, y) and Hue
+```{r}
+df%>%
+  ggplot(mapping=aes(y=y))+
+  geom_point(mapping=aes(x=Hue))+
+  theme_bw()
+```
+
+-> Visualize the relationships between the continuous output the LOGIT-transformed response, y) with respect to the categorical inputs
+
+The below code visualizes the relationships between the continuous output the LOGIT-transformed response, y) and Lightness
+```{r}
+df%>%
+  ggplot(mapping=aes(y=y))+
+  geom_boxplot(mapping=aes(x=Lightness))+
+  theme_bw()
+```
+
+The below code visualizes the relationships between the continuous output the LOGIT-transformed response, y) and Saturation
+```{r}
+df%>%
+  ggplot(mapping=aes(y=y))+
+  geom_boxplot(mapping=aes(x=Saturation))+
+  theme_bw()
+```
+
+## Visualize the relationships between the continuous output the LOGIT-transformed response, y) with respect to the inputs and binary outcome
+
+```{r}
+ df %>% 
+  tibble::rowid_to_column() %>%
+  pivot_longer(c(R, G, B,Hue)) %>%
+  ggplot(mapping = aes(x=value,y=y,color=outcome))+
+  geom_point(alpha=0.33)+
+  facet_wrap(~name, scales = 'free_x')+
+  theme_bw()
+```
+
+## Visualize the behavior of the binary outcome 
+
+### Visualize the behavior of the binary outcome with respect to the continuous inputs
+
+The below code visualizes the behavior of the binary outcome with respect to R
+```{r}
+df%>%
+  ggplot(mapping=aes(y=outcome))+
+  geom_point(mapping=aes(x=R))+
+  theme_bw()
+```
+
+The below code visualizes the behavior of the binary outcome with respect to G
+```{r}
+df%>%
+  ggplot(mapping=aes(y=outcome))+
+  geom_point(mapping=aes(x=G))+
+  theme_bw()
+```
+
+The below code visualizes the behavior of the binary outcome with respect to B
+```{r}
+df%>%
+  ggplot(mapping=aes(y=outcome))+
+  geom_point(mapping=aes(x=B))+
+  theme_bw()
+```
+
+The below code visualizes the behavior of the binary outcome with respect to Hue
+```{r}
+df%>%
+  ggplot(mapping=aes(y=outcome))+
+  geom_point(mapping=aes(x=Hue))+
+  theme_bw()
+```
+
+### visualize the behavior of the binary outcome with respect to the categorical inputs
+
+The below code visualizes the behavior of the binary outcome with respect to Lightness using boxplots
+```{r}
+df%>%
+  ggplot(mapping=aes(y=outcome))+
+  geom_boxplot(mapping=aes(x=Lightness))+
+  theme_bw()
+```
+
+The below code visualizes the behavior of the binary outcome with respect to Saturation  using boxplots
+```{r}
+df%>%
+  ggplot(mapping=aes(y=outcome))+
+  geom_boxplot(mapping=aes(x=Saturation))+
+  theme_bw()
+```
+
+The below code visualizes the behavior of the binary outcome with respect to Lightness using bar plots
+```{r}
+df%>%
+  ggplot(mapping=aes(Lightness,fill=as.factor(outcome)))+
+  geom_bar()+
+  theme_bw()
+```
+
+The below code visualizes the behavior of the binary outcome with respect to Saturation using bar plots
+```{r}
+df%>%
+  ggplot(mapping=aes(Saturation,fill=as.factor(outcome)))+
+  geom_bar()+
+  theme_bw()
+```
+
+The below code visualizes the behavior of the binary outcome with respect to Lightness using bar plots through proportion
+```{r}
+df%>%
+  ggplot(mapping=aes(Lightness,fill=as.factor(outcome)))+
+  geom_bar(position = "fill")+
+  theme_bw()
+```
+
+The below code visualizes the behavior of the binary outcome with respect to Saturation using bar plots through proportion
+```{r}
+df%>%
+  ggplot(mapping=aes(Saturation,fill=as.factor(outcome)))+
+  geom_bar(position = "fill")+
+  theme_bw()
+```
+
+## Additional Visualizations to analyse behavior of outcome for continuous inputs
+
+```{r}
+df %>% 
+  tibble::rowid_to_column() %>%
+  pivot_longer(c(R, G, B,Hue)) %>%
+  ggplot(mapping=aes(x=value,y=outcome))+
+  geom_jitter(height=0.02,width=0)+
+  facet_wrap(~name,scales = 'free_x')+
+  theme_bw()
+```
+
+```{r}
+df %>% 
+  tibble::rowid_to_column() %>%
+  pivot_longer(c(R, G, B,Hue)) %>%
+  ggplot(mapping=aes(x=value,y=outcome))+
+  geom_jitter(height=0.02,width=0)+
+  geom_smooth(formula=y~x, method = "glm" , method.args = list(family = 'binomial'))+
+  facet_wrap(~name,scales = 'free_x')+
+  theme_bw()
+```
+
+## Visualize the behavior of continuous inputs with respect to categorical inputs
+
+The below code visualizes the behavior of continuous inputs with respect to Lightness through points
+
+```{r}
+ df %>% 
+  tibble::rowid_to_column() %>%
+  pivot_longer(c(R, G, B,Hue)) %>%
+  ggplot(mapping = aes(x=Lightness,y=value))+
+  geom_point(alpha=0.33)+
+  facet_wrap(~name, scales = 'free_y')+
+  theme_bw()
+```
+
+The below code visualizes the behavior of continuous inputs with respect to Lightness through boxplots
+```{r}
+ df %>% 
+  tibble::rowid_to_column() %>%
+  pivot_longer(c(R, G, B,Hue)) %>%
+  ggplot(mapping = aes(x=Lightness,y=value))+
+  geom_boxplot()+
+  facet_wrap(~name, scales = 'free_y')+
+  theme_bw()
+```
+
+The below code visualizes the behavior of continuous inputs with respect to Saturation through points
+```{r}
+ df %>% 
+  tibble::rowid_to_column() %>%
+  pivot_longer(c(R, G, B,Hue)) %>%
+  ggplot(mapping = aes(x=Saturation,y=value))+
+  geom_point(alpha=0.33)+
+  facet_wrap(~name, scales = 'free_y')+
+  theme_bw()
+```
+
+The below code visualizes the behavior of continuous inputs with respect to Saturation through boxplots
+```{r}
+ df %>% 
+  tibble::rowid_to_column() %>%
+  pivot_longer(c(R, G, B,Hue)) %>%
+  ggplot(mapping = aes(x=Saturation,y=value))+
+  geom_boxplot()+
+  facet_wrap(~name, scales = 'free_y')+
+  theme_bw()
+```
+
+# Check for linear separability between variables
+
+If the points can be completely separated vertically using a line then the data is said to be linearly separable. Models can be difficult to fit for such data.
+
+The below code visualizes the linear separability between R and G
+```{r}
+df%>%  
+  ggplot(mapping = aes(x = R, y = G))+
+  geom_point(mapping=aes(color=as.factor(outcome),shape=as.factor(outcome)),size=3)+
+  theme_bw()
+```
+
+The below code visualizes the linear separability between R and B
+```{r}
+df%>%  
+  ggplot(mapping = aes(x = R, y = B))+
+  geom_point(mapping=aes(color=as.factor(outcome),shape=as.factor(outcome)),size=3)+
+  theme_bw()
+```
+
+The below code visualizes the linear separability between R and Hue
+```{r}
+df%>%  
+  ggplot(mapping = aes(x = R, y = Hue))+
+  geom_point(mapping=aes(color=as.factor(outcome),shape=as.factor(outcome)),size=3)+
+  theme_bw()
+```
+
+The below code visualizes the linear separability between G and B
+```{r}
+df%>%  
+  ggplot(mapping = aes(x = G, y = B))+
+  geom_point(mapping=aes(color=as.factor(outcome),shape=as.factor(outcome)),size=3)+
+  theme_bw()
+```
+
+The below code visualizes the linear separability between G and Hue
+```{r}
+df%>%  
+  ggplot(mapping = aes(x = G, y = Hue))+
+  geom_point(mapping=aes(color=as.factor(outcome),shape=as.factor(outcome)),size=3)+
+  theme_bw()
+```
+
+The below code visualizes the linear separability between B and Hue
+```{r}
+df%>%  
+  ggplot(mapping = aes(x = B, y = Hue))+
+  geom_point(mapping=aes(color=as.factor(outcome),shape=as.factor(outcome)),size=3)+
+  theme_bw()
+```
+
+Let us visualize the same for different categorical variables
+
+The below code visualizes the linear separability between R and G with respect to Lightness
+```{r}
+df%>%  
+  ggplot(mapping = aes(x = R, y = G))+
+  geom_point(mapping=aes(color=as.factor(outcome),shape=as.factor(outcome)),size=3)+
+  facet_wrap(~Lightness, scales = "free")+
+  theme_bw()
+```
+
+The below code visualizes the linear separability between R and B with respect to Lightness
+```{r}
+df%>%  
+  ggplot(mapping = aes(x = R, y = B))+
+  geom_point(mapping=aes(color=as.factor(outcome),shape=as.factor(outcome)),size=3)+
+  facet_wrap(~Lightness, scales = "free")+
+  theme_bw()
+```
+
+The below code visualizes the linear separability between R and Hue with respect to Lightness
+```{r}
+df%>%  
+  ggplot(mapping = aes(x = R, y = Hue))+
+  geom_point(mapping=aes(color=as.factor(outcome),shape=as.factor(outcome)),size=3)+
+  facet_wrap(~Lightness, scales = "free")+
+  theme_bw()
+```
+
+The below code visualizes the linear separability between G and B with respect to Lightness
+```{r}
+df%>%  
+  ggplot(mapping = aes(x = G, y = B))+
+  geom_point(mapping=aes(color=as.factor(outcome),shape=as.factor(outcome)),size=3)+
+  facet_wrap(~Lightness, scales = "free")+
+  theme_bw()
+```
+
+The below code visualizes the linear separability between G and Hue with respect to Lightness
+```{r}
+df%>%  
+  ggplot(mapping = aes(x = G, y = Hue))+
+  geom_point(mapping=aes(color=as.factor(outcome),shape=as.factor(outcome)),size=3)+
+  facet_wrap(~Lightness, scales = "free")+
+  theme_bw()
+```
+
+The below code visualizes the linear separability between B and Hue with respect to Lightness
+```{r}
+df%>%  
+  ggplot(mapping = aes(x = B, y = Hue))+
+  geom_point(mapping=aes(color=as.factor(outcome),shape=as.factor(outcome)),size=3)+
+  facet_wrap(~Lightness, scales = "free")+
+  theme_bw()
+```
+
+The below code visualizes the linear separability between R and G with respect to Saturation
+```{r}
+df%>%  
+  ggplot(mapping = aes(x = R, y = G))+
+  geom_point(mapping=aes(color=as.factor(outcome),shape=as.factor(outcome)),size=3)+
+  facet_wrap(~Saturation, scales = "free")+
+  theme_bw()
+```
+
+The below code visualizes the linear separability between R and B with respect to Saturation
+```{r}
+df%>%  
+  ggplot(mapping = aes(x = R, y = B))+
+  geom_point(mapping=aes(color=as.factor(outcome),shape=as.factor(outcome)),size=3)+
+  facet_wrap(~Saturation, scales = "free")+
+  theme_bw()
+```
+
+The below code visualizes the linear separability between R and Hue with respect to Saturation
+```{r}
+df%>%  
+  ggplot(mapping = aes(x = R, y = Hue))+
+  geom_point(mapping=aes(color=as.factor(outcome),shape=as.factor(outcome)),size=3)+
+  facet_wrap(~Saturation, scales = "free")+
+  theme_bw()
+```
+
+The below code visualizes the linear separability between G and B with respect to Saturation
+```{r}
+df%>%  
+  ggplot(mapping = aes(x = G, y = B))+
+  geom_point(mapping=aes(color=as.factor(outcome),shape=as.factor(outcome)),size=3)+
+  facet_wrap(~Saturation, scales = "free")+
+  theme_bw()
+```
+
+The below code visualizes the linear separability between G and Hue with respect to Saturation
+```{r}
+df%>%  
+  ggplot(mapping = aes(x = G, y = Hue))+
+  geom_point(mapping=aes(color=as.factor(outcome),shape=as.factor(outcome)),size=3)+
+  facet_wrap(~Saturation, scales = "free")+
+  theme_bw()
+```
+
+The below code visualizes the linear separability between B and Hue with respect to Saturation
+```{r}
+df%>%  
+  ggplot(mapping = aes(x = B, y = Hue))+
+  geom_point(mapping=aes(color=as.factor(outcome),shape=as.factor(outcome)),size=3)+
+  facet_wrap(~Saturation, scales = "free")+
+  theme_bw()
+```

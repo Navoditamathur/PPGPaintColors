@@ -1,0 +1,439 @@
+---
+title: "PPG Paint Colors: Final Project"
+subtitle: "Part 4:Imputation"
+author: "Navodita Mathur"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+
+This RMarkdown shows how to gather insights from the final project data. 
+
+## Load packages
+
+```{r, load_packages}
+library(tidyverse)
+library(caret)
+library(yardstick)
+```
+
+# Regression
+
+The best model is the model where splines of degree 2 of R, G, B are interacted with each other.
+
+The top variables are G, R
+
+Hue is one of the input that does not appear to be helpful at all in predicting the property while 'G' input appears to dominate the other inputs like Lightness and B
+
+## Read data
+
+Read predictions.  
+```{r, read_final_data}
+df_predict_lm <- readr::read_csv("lm_predict.csv", col_names = TRUE)
+```
+
+```{r}
+df_predict_lm%>%glimpse()
+```
+
+Let us visualize the data to see the number of errors
+```{r}
+df_predict_lm%>%
+  dplyr::mutate (error = abs(pred-y))%>%
+  ggplot(mapping = aes(x=Lightness, y=error))+
+  geom_point()+
+  theme_bw()
+```
+
+```{r}
+df_predict_lm%>%
+  dplyr::mutate (error = abs(pred-y))%>%
+  ggplot(mapping = aes(x=Saturation, y=error))+
+  geom_point()+
+  theme_bw()
+```
+
+```{r}
+mean_error = mean(abs(df_predict_lm$pred-df_predict_lm$y))
+```
+
+```{r}
+rmse = rmse_vec(df_predict_lm$y, df_predict_lm$pred)
+```
+
+Visualize to see the category with more error than the mean
+```{r}
+df_predict_lm%>%
+  dplyr::mutate (error = abs(pred-y))%>%
+  ggplot(mapping = aes(x=Lightness, y=error, color = error>mean_error))+
+  geom_point()+
+  geom_hline(yintercept =mean_error)+
+  theme_bw()
+```
+
+```{r}
+df_predict_lm%>%
+  dplyr::mutate (error = abs(pred-y))%>%
+  ggplot(mapping = aes(x=Saturation, y=error, color = error>mean_error))+
+  geom_point()+
+  geom_hline(yintercept = mean_error)+
+  theme_bw()
+```
+
+Analyse the rmse for each category of lightness and Saturation.
+
+```{r}
+df_predict_lm%>%
+  dplyr::mutate (error = abs(pred-y))%>%
+  dplyr::group_by(Lightness) %>% 
+  dplyr::summarise(total_num = n(), 
+                   sum_error = sum(error),
+                   RMSE = rmse_vec(y, pred),
+                   R2 = cor(pred, y)^2, 
+                   prop_error_gt_mean = sum(error>mean_error)/n())
+```
+
+```{r}
+df_predict_lm%>%
+  dplyr::group_by(Lightness) %>% 
+  dplyr::summarise(RMSE = rmse_vec(y, pred))%>%
+  ggplot(mapping = aes(x=Lightness, y=RMSE))+
+  geom_point()+
+  geom_hline(yintercept = rmse)+
+  theme_bw()+
+  theme_bw()
+```
+
+As saturated category has least sum of errors and rmse  it is easiest to predict.
+As dark category has max sum of errors and rmse, it is hardest to predict.
+
+```{r}
+df_predict_lm%>%
+  dplyr::mutate (error = abs(pred-y))%>%
+  dplyr::group_by(Saturation) %>% 
+  dplyr::summarise(total_num = n(), 
+                   sum_error = sum(error),
+                   RMSE = rmse_vec(y, pred),
+                   R2 = cor(pred, y)^2, 
+                   prop_error_gt_mean = sum(error>mean_error)/n())
+```
+
+```{r}
+df_predict_lm%>%
+  dplyr::group_by(Saturation) %>% 
+  dplyr::summarise(RMSE = rmse_vec(y, pred))%>%
+  ggplot(mapping = aes(x=Saturation, y=RMSE))+
+  geom_point()+
+  geom_hline(yintercept = rmse)+
+  theme_bw()
+```
+
+As "gray" category has least sum of errors and rmse, it is easiest to predict.
+As "shaded" category has max sum of errors and rmse, it is hardest to predict.
+
+## Reload the best linear model
+
+```{r}
+lm_mod <- readr::read_rds("lm_model.rds")
+```
+
+## Make Predictions
+
+The below code prepares synthetic data 
+```{r}
+viz_grid_lm <- expand.grid(G = seq(min(df_predict_lm$G), max(df_predict_lm$G), length.out=101),
+                        R = seq(min(df_predict_lm$R), max(df_predict_lm$R), length.out=101),
+                        B = seq(min(df_predict_lm$B), max(df_predict_lm$B), length.out=3),
+                        Hue = seq(min(df_predict_lm$Hue), max(df_predict_lm$Hue), length.out=3),
+                        Lightness = c('saturated','dark'),
+                        Saturation = c('gray','shaded'),
+                        KEEP.OUT.ATTRS = FALSE,
+                        stringsAsFactors = FALSE) %>% 
+  as.data.frame() %>% tibble::as_tibble()
+
+viz_grid_lm %>% glimpse()
+```
+
+The below code makes predictions on the created data
+```{r}
+pred_viz_lm <- viz_grid_lm%>%
+  dplyr::mutate(pred_trend = predict(lm_mod , newdata = viz_grid_lm))
+```
+
+Take a glimpse of the predictions made by the model
+```{r}
+pred_viz_lm%>%glimpse()
+```
+
+### Visualize trends associated with easiest and hardest to predict combinations of Lightness and Saturation 
+
+Visualize the trends associated with easiest and hardest to predict combinations of Lightness
+```{r}
+pred_viz_lm %>%
+  ggplot(mapping = aes(x = G, y = R)) +
+  geom_raster(mapping = aes(fill = pred_trend)) +
+  facet_wrap(~Lightness)+
+  scale_fill_gradient2(low = 'red', 
+                       mid = 'white', 
+                       high = 'blue',
+                       midpoint = median(pred_viz_lm$pred_trend),
+                       limits = c(min(pred_viz_lm$pred_trend), max(pred_viz_lm$pred_trend))) +
+  theme_bw()
+```
+
+Visualize the trends associated with easiest and hardest to predict combinations of Saturation
+```{r}
+pred_viz_lm %>%
+  ggplot(mapping = aes(x = G, y = R)) +
+  geom_raster(mapping = aes(fill = pred_trend)) +
+  facet_wrap(~Saturation)+
+  scale_fill_gradient2(low = 'red', 
+                       mid = 'white',
+                       high = 'blue',
+                       midpoint = median(pred_viz_lm$pred_trend),
+                       limits = c(min(pred_viz_lm$pred_trend), max(pred_viz_lm$pred_trend))) +
+  theme_bw()
+```
+
+No, the trends associated with the HARDEST to predict combinations are not different from the trends associated with the EASIEST to prediction combinations.
+
+Let us visualize the same for all combinations of Lightness and Saturation
+
+The below code prepares synthetic data 
+```{r}
+viz_grid_lm_all <- expand.grid(G = seq(min(df_predict_lm$G), max(df_predict_lm$G), length.out=101),
+                        R = seq(min(df_predict_lm$R), max(df_predict_lm$R), length.out=101),
+                        B = seq(min(df_predict_lm$B), max(df_predict_lm$B), length.out=3),
+                        Hue = seq(min(df_predict_lm$Hue), max(df_predict_lm$Hue), length.out=3),
+                        Lightness = unique(df_predict_lm$Lightness),
+                        Saturation = unique(df_predict_lm$Saturation),
+                        KEEP.OUT.ATTRS = FALSE,
+                        stringsAsFactors = FALSE) %>% 
+  as.data.frame() %>% tibble::as_tibble()
+
+viz_grid_lm_all %>% glimpse()
+```
+
+The below code makes predictions on the created data
+```{r}
+pred_viz_lm_all <- viz_grid_lm_all%>%
+  dplyr::mutate(pred_trend = predict(lm_mod , newdata = viz_grid_lm_all))
+```
+
+Take a glimpse of the predictions made by the model
+```{r}
+pred_viz_lm_all%>%glimpse()
+```
+
+### Visualize trends associated with all combinations of Lightness and Saturation 
+
+Visualize the trends associated with all combinations of Lightness
+```{r}
+pred_viz_lm_all %>%
+  ggplot(mapping = aes(x = G, y = R)) +
+  geom_raster(mapping = aes(fill = pred_trend)) +
+  facet_wrap(~Lightness)+
+  scale_fill_gradient2(low = 'red', 
+                       mid = 'white', 
+                       high = 'blue',
+                       midpoint = median(pred_viz_lm$pred_trend),
+                       limits = c(min(pred_viz_lm$pred_trend), max(pred_viz_lm$pred_trend))) +
+  theme_bw()
+```
+
+Visualize the trends associated with all combinations of Saturation
+```{r}
+pred_viz_lm_all %>%
+  ggplot(mapping = aes(x = G, y = R)) +
+  geom_raster(mapping = aes(fill = pred_trend)) +
+  facet_wrap(~Saturation)+
+  scale_fill_gradient2(low = 'red', 
+                       mid = 'white', 
+                       high = 'blue',
+                       midpoint = median(pred_viz_lm$pred_trend),
+                       limits = c(min(pred_viz_lm$pred_trend), max(pred_viz_lm$pred_trend))) +
+  theme_bw()
+```
+
+# Classification
+
+The best model is the model where splines of degree 2 of G, B and Hue are interacted with each other and added to saturation.
+
+The top variables are Hue, G 
+
+R is one of the input that does not appear to be helpful at all in predicting the property while 'Hue' along with input appears to lead the trend.
+
+## Read data
+
+Read predictions.  
+```{r, read_data}
+df_predict_glm <- readr::read_csv("glm_predict.csv", col_names = TRUE)
+```
+
+```{r}
+df_predict_glm%>%glimpse()
+```
+
+```{r}
+df_predict_glm%>%
+  dplyr::mutate (miss = pred != outcome)%>%
+  dplyr::group_by(Lightness) %>% 
+  dplyr::summarise(total_num = n(), 
+                   num_miss = sum(miss), 
+                   prop_miss = sum(miss)/n())
+```
+
+As "saturated" category as least number of mis-classifications, it is easiest to predict.
+As "midtone" category max number of mis-classifications, it is hardest to predict.
+
+```{r}
+df_predict_glm%>%
+  dplyr::mutate (miss = pred != outcome)%>%
+  dplyr::group_by(Saturation) %>% 
+  dplyr::summarise(total_num = n(), 
+                   num_miss = sum(miss), 
+                   prop_miss = sum(miss)/n())
+```
+
+As bright category as least number of mis-classifications, it is easiest to predict.
+As shaded category max number of mis-classifications, it is hardest to predict.
+
+```{r}
+df_predict_glm%>%
+  dplyr::mutate (miss = pred != outcome)%>%
+  ggplot(mapping = aes(x=miss))+
+  geom_bar()+
+  facet_wrap(~Lightness)+
+  theme_bw()
+```
+
+```{r}
+df_predict_glm%>%
+  dplyr::mutate (miss = pred != outcome)%>%
+  ggplot(mapping = aes(x=miss))+
+  geom_bar()+
+  facet_wrap(~Saturation)+
+  theme_bw()
+```
+
+## Reload the best generalized linear model
+
+```{r}
+glm_mod <- readr::read_rds("glm_model.rds")
+```
+
+## Make Predictions
+
+The below code prepares synthetic data 
+```{r}
+viz_grid_glm <- expand.grid(G = seq(min(df_predict_lm$G), max(df_predict_lm$G), length.out=101),
+                        R = seq(min(df_predict_lm$R), max(df_predict_lm$R), length.out=2),
+                        B = seq(min(df_predict_lm$B), max(df_predict_lm$B), length.out=3),
+                        Hue = seq(min(df_predict_lm$Hue), max(df_predict_lm$Hue), length.out=101),
+                        Lightness = c('saturated','midtone'),
+                        Saturation = c('bright','shaded'),
+                        KEEP.OUT.ATTRS = FALSE,
+                        stringsAsFactors = FALSE) %>% 
+  as.data.frame() %>% tibble::as_tibble()
+
+viz_grid_glm %>% glimpse()
+```
+
+The below code makes predictions on the created data
+```{r}
+pred_viz_glm <- viz_grid_glm %>% bind_cols(predict(glm_mod , newdata = viz_grid_glm, type="prob"))
+```
+
+Take a glimpse of the predictions made by the model
+```{r}
+pred_viz_glm%>%glimpse()
+```
+
+### Visualize trends associated with easiest and hardest to predict combinations of Lightness and Saturation
+
+Visualize the trends associated with easiest and hardest to predict combinations of Lightness
+```{r}
+pred_viz_glm %>%
+  ggplot(mapping = aes(x = Hue, y = G)) +
+  geom_raster(mapping = aes(fill = event)) +
+  facet_wrap(~Lightness)+
+  scale_fill_gradient2(low = 'red', mid = 'white', high = 'blue',
+                      midpoint = 0.5,
+                      limits = c(0, 1))+
+  theme_bw()
+```
+
+Visualize the trends associated with easiest and hardest to predict combinations of Saturation
+```{r}
+pred_viz_glm %>%
+  ggplot(mapping = aes(x = Hue, y = G)) +
+  geom_raster(mapping = aes(fill = event)) +
+  facet_wrap(~Saturation)+
+  scale_fill_gradient2(low = 'red', mid = 'white', high = 'blue',
+                      midpoint = 0.5,
+                      limits = c(0, 1))+
+  theme_bw()
+```
+
+Yes, the trends associated with the HARDEST to predict combinations are a bit different from the trends associated with the EASIEST to prediction combinations for saturation.
+
+Let us visualize the same for all combinations of Lightness and Saturation
+
+The below code prepares synthetic data 
+```{r}
+viz_grid_glm_all <- expand.grid(G = seq(min(df_predict_lm$G), max(df_predict_lm$G), length.out=101),
+                        R = seq(min(df_predict_lm$R), max(df_predict_lm$R), length.out=3),
+                        B = seq(min(df_predict_lm$B), max(df_predict_lm$B), length.out=3),
+                        Hue = seq(min(df_predict_lm$Hue), max(df_predict_lm$Hue), length.out=101),
+                        Lightness = unique(df_predict_lm$Lightness),
+                        Saturation = unique(df_predict_lm$Saturation),
+                        KEEP.OUT.ATTRS = FALSE,
+                        stringsAsFactors = FALSE) %>% 
+  as.data.frame() %>% tibble::as_tibble()
+
+viz_grid_glm_all %>% glimpse()
+```
+
+The below code makes predictions on the created data
+```{r}
+pred_viz_glm_all <- viz_grid_glm_all %>% bind_cols(predict(glm_mod , newdata = viz_grid_glm_all, type="prob"))
+```
+
+Take a glimpse of the predictions made by the model
+```{r}
+pred_viz_glm_all%>%glimpse()
+```
+
+### Visualize trends associated with all combinations of Lightness and Saturation
+
+Visualize the trends associated with all combinations of Lightness
+```{r}
+pred_viz_glm_all %>%
+  ggplot(mapping = aes(x = Hue, y = G)) +
+  geom_raster(mapping = aes(fill = event)) +
+  facet_wrap(~Lightness)+
+  scale_fill_gradient2(low = 'red',
+                       mid = 'white',
+                       high = 'blue', 
+                       midpoint = 0.5,
+                       limits = c(0, 1)) +
+  theme_bw()
+```
+
+Visualize the trends associated with all combinations of Saturation
+```{r}
+pred_viz_glm_all %>%
+  ggplot(mapping = aes(x = Hue, y = G)) +
+  geom_raster(mapping = aes(fill = event)) +
+  facet_wrap(~Saturation)+
+  scale_fill_gradient2(low = 'red', 
+                       mid = 'white', 
+                       high = 'blue',
+                       midpoint = 0.5,
+                       limits = c(0, 1)) +
+  theme_bw()
+```

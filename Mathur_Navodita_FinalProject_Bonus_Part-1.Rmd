@@ -1,0 +1,284 @@
+---
+title: "PPG Paint Colors: Final Project"
+subtitle: "Bonus: Synthetic Data"
+author: "Navodita Mathur"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+
+This RMarkdown shows how to create synthetic data in the final project data. 
+
+**You must download the data from Canvas and save the data in the same directory as this RMarkdown file.**  
+
+## Load packages
+
+This example uses the `tidyverse` suite of packages.  
+
+```{r, load_tidyverse}
+library(tidyverse)
+```
+
+# Preparing Synthetic Data
+
+### Declaring data sizes
+
+Declare dataset sizes of small, medium and large data sets
+```{r}
+n_small <- 1000
+n_medium <- 2500
+n_large <- 5000
+```
+
+### True Parameter Values
+
+```{r}
+# true parameter values
+beta0 <- -5
+beta1 <- 4
+beta2 <- 5
+beta3 <- -10
+beta4 <- 5
+beta5 <- c(-1, 3, 1, 2)
+```
+
+```{r}
+prepare_data <-function(n_size)
+{
+  set.seed(123)
+
+  # continuous predictors
+  x1 <- rnorm(n_size)
+  x2 <- rnorm(n_size)
+  x3 <- rnorm(n_size)
+
+  # categorical predictor
+  x4 <- factor(sample(1:4, n_size, replace=TRUE))
+
+  # compute the log odds for each observation using the true model
+  eta <- beta0 + beta1*x1 + beta2*x1^2 + beta3*x2 + beta4*x3 + beta5[x4]
+
+  # transform log odds to probability of positive class
+  prob <- boot::inv.logit(eta)
+
+  # generate binary response variable
+  y <- rbinom(n_size, 1, prob)
+  return (list(x1=x1,x2=x2,x3=x3,x4=x4,y=y))
+}
+```
+
+```{r}
+data = prepare_data(n_small)
+data_small <- data.frame(y = data$y, x1 = data$x1, x2 = data$x2, x3 = data$x3, x4 = data$x4)
+```
+
+```{r}
+data_small%>%glimpse()
+```
+
+```{r}
+data = prepare_data(n_medium)
+data_medium <- data.frame(y = data$y, x1 = data$x1, x2 = data$x2, x3 = data$x3, x4 = data$x4)
+```
+
+```{r}
+data_medium%>%glimpse()
+```
+
+```{r}
+data = prepare_data(n_large)
+data_large <- data.frame(y = data$y, x1 = data$x1, x2 = data$x2, x3 = data$x3, x4 = data$x4)
+```
+
+```{r}
+data_large%>%glimpse()
+```
+
+# Modeling
+
+### Design Matrices
+
+```{r}
+Xmat_small<-model.matrix(y ~ x1 + I(x1^2) + I(x1^3) + x2 + I(x2^2) + I(x2^3) + x3 + I(x3^2) + I(x3^3) + x4 , data = data_small)
+```
+
+```{r}
+head(Xmat_small)
+```
+
+```{r}
+Xmat_medium<-model.matrix(y ~ x1 + I(x1^2) + I(x1^3) + x2 + I(x2^2) + I(x2^3) + x3 + I(x3^2) + I(x3^3) + x4, data = data_medium)
+```
+
+```{r}
+head(Xmat_medium)
+```
+
+```{r}
+Xmat_large<-model.matrix(y ~ x1 + I(x1^2) + I(x1^3) + x2 + I(x2^2) + I(x2^3) + x3 + I(x3^2) + I(x3^3) + x4, data = data_large)
+```
+
+```{r}
+head(Xmat_large)
+```
+
+### Estimate MLE
+
+Logpost Function
+```{r}
+my_logpost <- function(unknowns, my_info)
+{
+  # extract the design matrix and assign to X
+  X <- my_info$design_matrix
+  
+  # calculate the linear predictor
+  eta <- X %*% as.matrix(unknowns)
+  
+  # calculate the event probability
+  mu <- boot::inv.logit(eta)
+  
+  # evaluate the log-likelihood
+  log_lik <- sum(dbinom(x = my_info$yobs,size = 1, prob = mu,log = TRUE))
+  
+  # evaluate the log-prior
+  log_prior <- sum(dnorm(x = unknowns,mean = my_info$mu_beta, sd = my_info$tau_beta, log = TRUE))
+  
+  # sum together
+  return(log_lik+log_prior)
+}
+```
+
+Laplace Approximation
+```{r}
+my_laplace <- function(start_guess, logpost_func, ...)
+{
+  fit <- optim(start_guess,
+               logpost_func,
+               gr = NULL,
+               ...,
+               method = "BFGS",
+               hessian = TRUE,
+               control = list(fnscale = -1, maxit = 10001))
+  
+  mode <- fit$par
+  post_var_matrix <- -solve(fit$hessian)
+  p <- length(mode) # number of unknown parameters
+  int <- p/2 * log(2 * pi) + 0.5 * log(det(post_var_matrix)) + logpost_func(mode, ...)
+  # package all of the results into a list
+  list(mode = mode,
+       var_matrix = post_var_matrix,
+       log_evidence = int,
+       converge = ifelse(fit$convergence == 0,
+                         "YES", 
+                         "NO"),
+       iter_counts = as.numeric(fit$counts[1]))
+}
+```
+
+Info required for small dataset
+```{r}
+info_small <- list(
+  yobs = data_small$y,
+  design_matrix = Xmat_small,
+  mu_beta = 0,
+  tau_beta = 1
+)
+```
+
+Laplace Approximation for small dataset
+```{r}
+laplace_small <- my_laplace(rep(0, ncol(Xmat_small)), my_logpost, info_small)
+```
+
+Check for convergence
+```{r}
+laplace_small$converge
+```
+
+Info required for medium dataset
+```{r}
+info_medium <- list(
+  yobs = data_medium$y,
+  design_matrix = Xmat_medium,
+  mu_beta = 0,
+  tau_beta = 1 
+)
+```
+
+Laplace Approximation for medium dataset
+```{r}
+laplace_medium <- my_laplace(rep(0, ncol(Xmat_medium)), my_logpost, info_medium)
+```
+
+Check for convergence
+```{r}
+laplace_medium$converge
+```
+
+Info required for large dataset
+```{r}
+info_large <- list(
+  yobs = data_large$y,
+  design_matrix = Xmat_large,
+  mu_beta = 0,
+  tau_beta = 1 
+)
+```
+
+Laplace Approximation for large dataset
+```{r}
+laplace_large <- my_laplace(rep(0, ncol(Xmat_large)), my_logpost, info_large)
+```
+
+Check for convergence
+```{r}
+laplace_large$converge
+```
+
+### Visualize the estimated coefficients
+
+```{r}
+viz_post_coefs <- function(post_means, post_sds, xnames)
+{
+  tibble::tibble(
+    mu = post_means,
+    sd = post_sds,
+    x = xnames
+  ) %>% 
+    mutate(x = factor(x, levels = xnames)) %>% 
+    ggplot(mapping = aes(x = x)) +
+    geom_hline(yintercept = 0, color = 'grey', linetype = 'dashed') +
+    geom_point(mapping = aes(y = mu)) +
+    geom_linerange(mapping = aes(ymin = mu - 2 * sd,
+                                 ymax = mu + 2 * sd,
+                                 group = x)) +
+    labs(x = 'feature', y = 'coefficient value') +
+    coord_flip() +
+    theme_bw()
+}
+```
+
+```{r}
+viz_post_coefs(laplace_small$mode,sqrt(diag(laplace_small$var_matrix)),colnames(info_small$design_matrix))
+```
+
+Intercept value is about -3, coefficient of x1 is about 1.8, x1^2 is about 2.8, x1^3 is about 0, x2 is about -4.9, x2^2 and x2^3 are about 0, x3 is about 2.5, x3^2 and x3^3 are about 0, x4 have values of coefficients as 2,1,1.5
+
+```{r}
+viz_post_coefs(laplace_medium$mode,sqrt(diag(laplace_medium$var_matrix)),colnames(info_medium$design_matrix))
+```
+
+Intercept value is about -4, coefficient of x1 is about 3, x1^2 is about 3.5, x1^3 is about 0, x2 is about -7, x2^2 and x2^3 are about 0, x3 is about 3.5, x3^2 and x3^3 are about 0, x4 have values of coefficients as 2.2,1,1.8
+
+```{r}
+viz_post_coefs(laplace_large$mode,sqrt(diag(laplace_large$var_matrix)),colnames(info_large$design_matrix))
+```
+
+Intercept value is about -4, coefficient of x1 is about 3, x1^2 is about 4, x1^3 is about 0, x2 is about -7.7, x2^2 and x2^3 are about 0, x3 is about 4, x3^2 and x3^3 are about 0, x4 have values of coefficients as 2.7,1.2,2.3
+
+As the dataset size increases, we get more and more certain and closer to real coefficient values. The values of intercept is difficult to guess as it includes the value of coefficient of reference category which is random.
+
